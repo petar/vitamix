@@ -6,4 +6,11 @@ func main() {
 	time.Now()
 
 	var x int = time.Now()
+
+	func() {
+		defer something()
+	}()
+
+	__mylab:
+	select {}
 }

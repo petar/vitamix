@@ -26,7 +26,7 @@ func VirtualizePackage(fileSet *token.FileSet, pkg *ast.Package, destDir string)
 
 func VirtualizeFile(fileSet *token.FileSet, file *ast.File, destDir string) {
 	// Add import of "vtime" package
-	addImport(file, "github.com/petar/GoDCCP/vtime")
+	addImport(file, "github.com/petar/vitamix/vtime")
 	// Replace go statements
 	fixGoStmt(file)
 	// Replace time.Now and time.Sleep calls
