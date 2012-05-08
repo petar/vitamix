@@ -12,7 +12,20 @@ func main() {
 		time.Sleep(1e9)
 	}()
 
-	x, ok := <-ch
+	// Select
+	select {
+	case <-ch:
+	case ch <- y:
+		boom()
+	default:
+		boom()
+	}
 
+	// Send
 	ch <- y
+
+	// Receive
+	x = <-ch
+	x, ok := <-ch
+	x, y = <-ch, <-ch
 }
