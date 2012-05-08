@@ -43,6 +43,6 @@ func main() {
 	}
 
 	for _, pkg := range pkgs {
-		VirtualizePackage(fileSet, pkg, *flagDest)
+		transformPackage(fileSet, pkg, *flagDest)
 	}
 }

@@ -9,17 +9,14 @@ import (
 	"go/ast"
 )
 
-// walk traverses the AST x, calling visit(y) for each node y in the tree but
-// also with a pointer to each ast.Expr, ast.Stmt, and *ast.BlockStmt,
-// in a bottom-up traversal.
+// Taken from gofix. Used by addImport logic.
 func walk(x interface{}, visit func(interface{})) {
 	walkBeforeAfter(x, nop, visit)
 }
 
 func nop(interface{}) {}
 
-// walkBeforeAfter is like walk but calls before(x) before traversing
-// x's children and after(x) afterward.
+// Taken from gofix
 func walkBeforeAfter(x interface{}, before, after func(interface{})) {
 	before(x)
 

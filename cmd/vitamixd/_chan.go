@@ -2,8 +2,12 @@ package main
 
 func main() {
 
+	// Receive
+	<-ch
 	x, ok := <-ch
+	x, y = <-ch, <-ch
 
+	// Send
 	ch <- y
 
 	select {
