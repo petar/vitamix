@@ -16,6 +16,8 @@ import (
 	"strings"
 )
 
+// XXX:
+//	* Print out is messy when comments are present
 // TODO:
 //	* Remove import of "time" package if not used other than for Now and Sleep
 //	* Ensure there is no other package imported as "vtime"
