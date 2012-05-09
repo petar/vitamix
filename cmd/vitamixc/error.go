@@ -29,10 +29,10 @@ func (e *Error) Error() string {
 
 // ErrorQueue is a list of errors accumulated during a pass through the AST of a file
 type ErrorQueue struct {
-	queue []*Error
+	queue []error
 }
 
-func (x *ErrorQueue) Add(e *Error) {
+func (x *ErrorQueue) Add(e error) {
 	x.queue = append(x.queue, e)
 }
 

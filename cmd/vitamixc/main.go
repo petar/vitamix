@@ -13,6 +13,14 @@ import (
 	"strings"
 )
 
+// TODO:
+//	* Remove import of "time" package if not used other than for Now and Sleep
+//	* Ensure there is no other package imported as "vtime"
+//	* fallthough in select statements is not supported. check for it.
+//	* We are assuming that pkg 'time' is imported as 'time'
+//	* We only catch direct calls of the form 'time.Now()'.
+//	* We would not catch indirect calls as in 'f := time.Now; f()'
+
 var (
 	flagSrc  *string = flag.String("src", ".", "Path to source directory")
 	flagDest *string = flag.String("dest", "", "Path to destination directory")
@@ -36,7 +44,7 @@ func main() {
 		usage()
 	}
 	fileSet := token.NewFileSet()
-	pkgs, err := parser.ParseDir(fileSet, *flagSrc, FilterGoFiles, 0)
+	pkgs, err := parser.ParseDir(fileSet, *flagSrc, FilterGoFiles, parser.ParseComments)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "parse error: %s\n", err)
 		os.Exit(1)
