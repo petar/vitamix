@@ -28,7 +28,7 @@ func RecurseProhibit(caller *visitor, node ast.Node) error {
 	return v.Error()
 }
 
-// prohibitVisitor is an AST visitor that rewrites channel operations
+// prohibitVisitor is an AST visitor that produces errors each time a channel operation is encountered
 type prohibitVisitor struct {
 	fileSet   *token.FileSet
 	recursion int
@@ -37,49 +37,13 @@ type prohibitVisitor struct {
 
 // Visit implements ast.Visistor's Visit method
 func (t *prohibitVisitor) Visit(node ast.Node) ast.Visitor {
-	?
 	if node == nil {
 		return t
 	}
-	bstmt, ok := node.(*ast.BlockStmt)
-	// If node is not a block statement, 
-	if !ok {
-		// Check that we haven't reached a channel operation (statement or expression) out of context
-		/*
-		if filterChanStmtOrExpr(node) != nil {
-			t.AddError(node.Pos(), "Channel operation out of context")
-			return nil
-		}
-		*/
-		// Continue the walk recursively
-		return t
+	if filterChanStmtOrExpr(node) != nil {
+		t.AddError(node.Pos(), "Channel operation in non top-level block")
 	}
-
-	// Rewrite each statement of a block statement
-	var list []ast.Stmt
-	for _, stmt := range bstmt.List {
-		t.printf("stmt@ %s ···· %s\n", t.fileSet.Position(stmt.Pos()), t.fileSet.Position(stmt.End()))
-		switch q := stmt.(type) {
-		case *ast.SelectStmt:
-			list = append(list, t.rewriteSelectStmt(q)...)
-		case *ast.SendStmt:
-			list = append(list, t.rewriteSendStmt(q)...)
-		case *ast.GoStmt:
-			list = append(list, t.rewriteGoStmt(q)...)
-		default:
-			if filterRecvStmt(stmt) != nil {
-				list = append(list, t.rewriteRecvStmt(stmt)...)
-			} else {
-				// Continue the walk recursively below this stmt
-				t.Rewrite(stmt)
-				list = append(list, stmt)
-			}
-		}
-	}
-	bstmt.List = list
-
-	// Do not continue the parent walk recursively
-	return nil
+	return t
 }
 
 // If node is a channel operation (send, receive, select) statement or expression, 
