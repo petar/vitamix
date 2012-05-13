@@ -5,34 +5,35 @@
 package main
 
 import (
-	"fmt"
 	"go/ast"
 	"go/token"
-	"os"
 )
 
-// Prohibit creates a new prohibiting visitor
+// Prohibit creates a new prohibiting frame
 func Prohibit(fset *token.FileSet, node ast.Node) error {
 	v := &prohibitVisitor{}
-	v.visitor.Init(fset)
+	v.frame.Init(fset)
 	ast.Walk(v, node)
 	return v.Error()
 }
 
 
-// RecurseProhibit creates a new prohibiting visitor as a callee from the visitor caller
-func RecurseProhibit(caller *visitor, node ast.Node) error {
+// RecurseProhibit creates a new prohibiting frame as a callee from the frame caller
+func RecurseProhibit(caller Framed, node ast.Node) error {
 	v := &prohibitVisitor{}
-	v.visitor.InitRecurse(caller)
+	v.frame.InitRecurse(caller)
 	ast.Walk(v, node)
 	return v.Error()
 }
 
-// prohibitVisitor is an AST visitor that produces errors each time a channel operation is encountered
+// prohibitVisitor is an AST frame that produces errors each time a channel operation is encountered
 type prohibitVisitor struct {
-	fileSet   *token.FileSet
-	recursion int
-	errs      ErrorQueue
+	frame
+}
+
+// Frame implements Framed.Frame
+func (t *prohibitVisitor) Frame() *frame {
+	return &t.frame
 }
 
 // Visit implements ast.Visistor's Visit method

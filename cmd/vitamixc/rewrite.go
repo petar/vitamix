@@ -12,35 +12,36 @@ import (
 )
 
 func fixChan(fset *token.FileSet, file *ast.File) {
-	v := &rewriteVisitor{ fileSet: fset }
-	ast.Walk(v, file)
-	/*
-	if err := v.Error(); err != nil {
-		fmt.Fprintf(os.Stderr, "Rewrite channel operations · errors parsing '%s':\n%s\n", file.Name.Name, err)
+	if err := Rewrite(fset, file); err != nil {
+		fmt.Fprintf(os.Stderr, "Rewrite errors parsing '%s':\n%s\n", file.Name.Name, err)
 	}
-	*/
 }
 
-// Rewrite creates a new rewriting visitor
+// Rewrite creates a new rewriting frame
 func Rewrite(fset *token.FileSet, node ast.Node) error {
 	rwv := &rewriteVisitor{}
-	rwv.visitor.Init(fset)
+	rwv.frame.Init(fset)
 	ast.Walk(rwv, node)
 	return rwv.Error()
 }
 
 
-// RecurseRewrite creates a new rewriting visitor as a callee from the visitor caller
-func RecurseRewrite(caller *visitor, node ast.Node) error {
+// RecurseRewrite creates a new rewriting frame as a callee from the frame caller
+func RecurseRewrite(caller Framed, node ast.Node) error {
 	rwv := &rewriteVisitor{}
-	rwv.visitor.InitRecurse(caller)
+	rwv.frame.InitRecurse(caller)
 	ast.Walk(rwv, node)
 	return rwv.Error()
 }
 
-// rewriteVisitor is an AST visitor that rewrites channel operations
+// rewriteVisitor is an AST frame that rewrites channel operations
 type rewriteVisitor struct {
-	visitor
+	frame
+}
+
+// Frame implements Framed.Frame
+func (t *rewriteVisitor) Frame() *frame {
+	return &t.frame
 }
 
 // Visit implements ast.Visistor's Visit method
