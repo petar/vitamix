@@ -13,6 +13,7 @@ import (
 
 // XXX: Make sure label statements produce an error
 // XXX: Take care of label statements
+// XXX: Check imports for newline printing insights
 
 func fixChan(fset *token.FileSet, file *ast.File) {
 	if err := Rewrite(fset, file); err != nil {
