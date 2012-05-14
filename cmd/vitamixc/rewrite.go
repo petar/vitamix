@@ -11,6 +11,9 @@ import (
 	"os"
 )
 
+// XXX: Make sure label statements produce an error
+// XXX: Take care of label statements
+
 func fixChan(fset *token.FileSet, file *ast.File) {
 	if err := Rewrite(fset, file); err != nil {
 		fmt.Fprintf(os.Stderr, "Rewrite errors parsing '%s':\n%s\n", file.Name.Name, err)
@@ -34,7 +37,10 @@ func RecurseRewrite(caller Framed, node ast.Node) error {
 	return rwv.Error()
 }
 
-// rewriteVisitor is an AST frame that rewrites channel operations
+// rewriteVisitor is an AST frame that traverses down the AST until it hits a block
+// statement, within which it rewrites the statement-level channel operations. 
+// This visitor itself does not traverse below the statements of the block statement.
+// It does however call another visitor type to continue below those statements.
 type rewriteVisitor struct {
 	frame
 }
@@ -50,23 +56,16 @@ func (t *rewriteVisitor) Visit(node ast.Node) ast.Visitor {
 		return t
 	}
 	bstmt, ok := node.(*ast.BlockStmt)
-	// If node is not a block statement, 
+	// If node is not a block statement, it means we are recursing down the
+	// AST and we haven't hit a block statement yet. 
 	if !ok {
-		// Check that we haven't reached a channel operation (statement or expression) out of context
-		/*
-		if filterChanStmtOrExpr(node) != nil {
-			t.AddError(node.Pos(), "Channel operation out of context")
-			return nil
-		}
-		*/
-		// Continue the walk recursively
+		// Keep recursing
 		return t
 	}
 
-	// Rewrite each statement of a block statement
+	// Rewrite each statement of a block statement and stop the recursion of this visitor
 	var list []ast.Stmt
 	for _, stmt := range bstmt.List {
-		t.Printf("stmt@ %s ···· %s\n", t.fileSet.Position(stmt.Pos()), t.fileSet.Position(stmt.End()))
 		switch q := stmt.(type) {
 		case *ast.SelectStmt:
 			list = append(list, t.rewriteSelectStmt(q)...)
@@ -94,8 +93,8 @@ func (t *rewriteVisitor) rewriteGoStmt(gostmt *ast.GoStmt) []ast.Stmt {
 	// Rewrite lower level nodes
 	RecurseRewrite(t, gostmt.Call.Fun)
 	for _, arg := range gostmt.Call.Args {
-		// XXX: What if an argument contains chan operations
-		RecurseRewrite(t, arg)
+		// TODO: Handle the case when an argument contains chan operations
+		RecurseProhibit(t, arg)
 	}
 	// Rewrite go statement itself
 	gostmt.Call = &ast.CallExpr{
@@ -106,53 +105,67 @@ func (t *rewriteVisitor) rewriteGoStmt(gostmt *ast.GoStmt) []ast.Stmt {
 			Body: &ast.BlockStmt{
 				List: []ast.Stmt{
 					&ast.ExprStmt{ X: gostmt.Call },
-					makeSimpleCallStmt("vtime", "Die"),
+					makeSimpleCallStmt("vtime", "Die", gostmt.Call.Pos()),
 				},
 			},
 		},
 	}
 	return []ast.Stmt{
-		makeSimpleCallStmt("vtime", "Go"),
+		makeSimpleCallStmt("vtime", "Go", gostmt.Pos()),
 		gostmt,
 	}
 }
 
 func (t *rewriteVisitor) rewriteRecvStmt(stmt ast.Stmt) []ast.Stmt {
 	// Rewrite lower level nodes
-	/* XXX
 	switch q := stmt.(type) {
 	case *ast.AssignStmt:
 		for _, expr := range q.Lhs {
-			RecurseRewrite(t, expr)
+			// TODO: Handle channel operations inside LHS of assignments
+			RecurseProhibit(t, expr)
 		}
 		for _, expr := range q.Rhs {
-			if expr != nil && filterRecvExpr(expr) != nil {
-				return stmt
+			if expr == nil {
+				continue
+			}
+			// TODO: Handle channel operations inside RHS of assignments
+			if ue := filterRecvExpr(expr); ue != nil {
+				RecurseProhibit(t, ue.X)
+			} else {
+				RecurseProhibit(t, expr)
 			}
 		}
 	case *ast.ExprStmt:
-		if q.X != nil && filterRecvExpr(q.X) != nil {
-			return stmt
+		if q == nil {
+			break
 		}
+		// TODO: Handle channel operations inside RHS of assignments
+		if ue := filterRecvExpr(q.X); ue != nil {
+			RecurseProhibit(t, ue.X)
+		} else {
+			RecurseProhibit(t, q)
+		}
+	default:
+		panic("unreach")
 	}
-	*/
 	// Rewrite receive statement itself
 	return []ast.Stmt{
-		makeSimpleCallStmt("vtime", "Block"),
+		makeSimpleCallStmt("vtime", "Block", stmt.Pos()),
 		stmt,
-		makeSimpleCallStmt("vtime", "Unblock"),
+		makeSimpleCallStmt("vtime", "Unblock", stmt.Pos()),
 	}
 }
 
 func (t *rewriteVisitor) rewriteSendStmt(sendstmt *ast.SendStmt) []ast.Stmt {
 	// Rewrite lower level nodes
-	RecurseRewrite(t, sendstmt.Chan)
-	RecurseRewrite(t, sendstmt.Value)
+	// TODO: Allow channel operations inside channel and value fields of send expression
+	RecurseProhibit(t, sendstmt.Chan)
+	RecurseProhibit(t, sendstmt.Value)
 	// Rewrite send statement itself
 	return []ast.Stmt{
-		makeSimpleCallStmt("vtime", "Block"),
+		makeSimpleCallStmt("vtime", "Block", sendstmt.Pos()),
 		sendstmt,
-		makeSimpleCallStmt("vtime", "Unblock"),
+		makeSimpleCallStmt("vtime", "Unblock", sendstmt.Pos()),
 	}
 }
 
@@ -169,13 +182,13 @@ func (t *rewriteVisitor) rewriteSelectStmt(selstmt *ast.SelectStmt) []ast.Stmt {
 		comm := clause.(*ast.CommClause)
 		body := comm.Body
 		comm.Body = append(
-			[]ast.Stmt{ makeSimpleCallStmt("vtime", "Unblock") },
+			[]ast.Stmt{ makeSimpleCallStmt("vtime", "Unblock", comm.Pos()) },
 			body...,
 		)
 	}
 	// Surround the select by a block statement and prefix it with a call to vtime.Block
 	return []ast.Stmt{
-		makeSimpleCallStmt("vtime", "Block"),
+		makeSimpleCallStmt("vtime", "Block", selstmt.Pos()),
 		selstmt,
 	}
 }

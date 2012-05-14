@@ -6,15 +6,17 @@ package main
 
 import (
 	"go/ast"
+	"go/token"
 )
 
-func makeSimpleCallStmt(pkgAlias, funcName string) ast.Stmt {
+func makeSimpleCallStmt(pkgAlias, funcName string, pos token.Pos) ast.Stmt {
 	return &ast.ExprStmt{
 		X: &ast.CallExpr{
 			Fun: &ast.SelectorExpr{
 				X:   &ast.Ident{ Name: pkgAlias },
 				Sel: &ast.Ident{ Name: funcName },
 			},
+			Lparen: pos,
 		},
 	}
 }

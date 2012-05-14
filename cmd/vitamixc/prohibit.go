@@ -93,10 +93,10 @@ func filterRecvStmt(stmt ast.Stmt) ast.Stmt {
 
 // If node is a receive operation expression, 
 // filterRecvExpr is the identity, otherwise it returns nil
-func filterRecvExpr(e ast.Expr) ast.Expr {
+func filterRecvExpr(e ast.Expr) *ast.UnaryExpr {
 	ue, ok := e.(*ast.UnaryExpr)
 	if !ok || ue.Op.String() != "<-" {
 		return nil
 	}
-	return e
+	return ue
 }

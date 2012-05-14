@@ -18,25 +18,27 @@ type Framed interface {
 // used by rewriteVisitor and prohibitVisitor
 type frame struct {
 	fileSet   *token.FileSet
+	errs      *ErrorQueue
 	recursion int
-	errs      ErrorQueue
 }
 
 // Init initializes a root-level frame
 func (t *frame) Init(fset *token.FileSet) {
 	t.fileSet = fset
+	t.errs = NewErrorQueue()
 }
 
 // InitRecurse initializes the frame from the calling frame
 func (t *frame) InitRecurse(caller Framed) {
 	t.fileSet = caller.Frame().fileSet
+	t.errs = caller.Frame().errs
 	t.recursion = caller.Frame().recursion+1
 }
 
 // Error returns any errors that have been accumulated by this frame
 func (t *frame) Error() error {
 	if t.errs.Len() > 0 {
-		return &t.errs
+		return t.errs
 	}
 	return nil
 }
@@ -46,6 +48,7 @@ func (t *frame) Printf(fmt_ string, args_ ...interface{}) {
 	for i := 0; i < t.recursion; i++ {
 		os.Stderr.WriteString("··")
 	}
+	os.Stderr.WriteString(" ")
 	fmt.Fprintf(os.Stderr, fmt_, args_...)
 }
 
@@ -53,5 +56,5 @@ func (t *frame) Printf(fmt_ string, args_ ...interface{}) {
 func (t *frame) AddError(pos token.Pos, msg string) {
 	err := NewError(t.fileSet.Position(pos), msg)
 	t.errs.Add(err)
-	t.Printf("·o· %s\n", err)
+	t.Printf("[¢] %s\n", err)
 }

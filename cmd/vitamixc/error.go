@@ -32,6 +32,10 @@ type ErrorQueue struct {
 	queue []error
 }
 
+func NewErrorQueue() *ErrorQueue {
+	return &ErrorQueue{}
+}
+
 func (x *ErrorQueue) Add(e error) {
 	x.queue = append(x.queue, e)
 }
