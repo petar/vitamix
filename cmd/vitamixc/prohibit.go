@@ -5,8 +5,10 @@
 package main
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
+	"os"
 )
 
 // Prohibit creates a new prohibiting frame
@@ -43,6 +45,7 @@ func (t *prohibitVisitor) Visit(node ast.Node) ast.Visitor {
 	}
 	if filterChanStmtOrExpr(node) != nil {
 		t.AddError(node.Pos(), "Channel operation in non top-level block")
+		fmt.Fprintf(os.Stderr, "op= %#v\n", node)
 	}
 	return t
 }
@@ -50,6 +53,9 @@ func (t *prohibitVisitor) Visit(node ast.Node) ast.Visitor {
 // If node is a channel operation (send, receive, select) statement or expression, 
 // filterChanStmt is the identity, otherwise it returns nil
 func filterChanStmtOrExpr(node ast.Node) ast.Node {
+	if node == nil {
+		panic("nil node")
+	}
 	switch q := node.(type) {
 	case ast.Stmt:
 		return filterChanStmt(q)
