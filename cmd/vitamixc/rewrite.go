@@ -124,7 +124,6 @@ func (t *rewriteVisitor) rewriteRecvStmt(stmt ast.Stmt) []ast.Stmt {
 	case *ast.AssignStmt:
 		for _, expr := range q.Lhs {
 			// TODO: Handle channel operations inside LHS of assignments
-			fmt.Fprintf(os.Stderr, "recurse on lhs %s: %#v\n", t.fileSet.Position(expr.Pos()).String(), expr)
 			RecurseProhibit(t, expr)
 		}
 		for _, expr := range q.Rhs {
@@ -132,7 +131,6 @@ func (t *rewriteVisitor) rewriteRecvStmt(stmt ast.Stmt) []ast.Stmt {
 				continue
 			}
 			// TODO: Handle channel operations inside RHS of assignments
-			println("recurse on rhs", t.fileSet.Position(stmt.Pos()).String())
 			if ue := filterRecvExpr(expr); ue != nil {
 				RecurseProhibit(t, ue.X)
 			} else {
