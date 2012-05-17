@@ -119,7 +119,7 @@ func (t *rewriteVisitor) rewriteGoStmt(gostmt *ast.GoStmt) []ast.Stmt {
 }
 
 func (t *rewriteVisitor) rewriteRecvStmt(stmt ast.Stmt) []ast.Stmt {
-	// Rewrite lower level nodes
+	// Prohibit inner blocks from having channel operation nodes
 	switch q := stmt.(type) {
 	case *ast.AssignStmt:
 		for _, expr := range q.Lhs {
@@ -142,7 +142,6 @@ func (t *rewriteVisitor) rewriteRecvStmt(stmt ast.Stmt) []ast.Stmt {
 			break
 		}
 		// TODO: Handle channel operations inside RHS of assignments
-		println("recurse on exprstmt", t.fileSet.Position(stmt.Pos()).String())
 		if ue := filterRecvExpr(q.X); ue != nil {
 			RecurseProhibit(t, ue.X)
 		} else {

@@ -5,6 +5,7 @@ func main() {
 
 	x, ok := <-ch
 
+	// This is stuff
 	x, y = <-ch, <-ch
 
 }
