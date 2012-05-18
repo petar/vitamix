@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	. "github.com/petar/vitamix/vrewrite"
 )
 
 // XXX:
@@ -68,7 +69,7 @@ func main() {
 		}
 		for _, pkg := range pkgs {
 			for _, fileFile := range pkg.Files {
-				processFile(fileSet, fileFile)
+				RewriteFile(fileSet, fileFile)
 				position := fileSet.Position(fileFile.Package)
 				if err = printToFile(path.Join(tgt, position.Filename), fileSet, fileFile); err != nil {
 					os.Exit(1)
@@ -82,7 +83,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Problem parsing file '%s' (%s)\n", src, err)
 			os.Exit(1)
 		}
-		processFile(fileSet, file)
+		RewriteFile(fileSet, file)
 		if err = printToFile(tgt, fileSet, file); err != nil {
 			os.Exit(1)
 		}
@@ -106,13 +107,4 @@ func printToFile(name string, fileSet *token.FileSet, fileFile *ast.File) error 
 		return err
 	}
 	return nil
-}
-
-func processFile(fileSet *token.FileSet, file *ast.File) {
-	// Add import of "vtime" package
-	addImport(file, "github.com/petar/vitamix/vtime")
-	// Rewrite time.Now and time.Sleep calls
-	fixCall(file)
-	// Rewrite chan operations
-	fixChan(fileSet, file)
 }

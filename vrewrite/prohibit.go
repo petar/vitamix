@@ -2,7 +2,7 @@
 // Use of this source code is governed by a 
 // license that can be found in the LICENSE file.
 
-package main
+package vrewrite
 
 import (
 	"fmt"
@@ -20,7 +20,7 @@ func Prohibit(fset *token.FileSet, node ast.Node) error {
 
 
 // RecurseProhibit creates a new prohibiting frame as a callee from the frame caller
-func RecurseProhibit(caller Framed, node ast.Node) error {
+func RecurseProhibit(caller framed, node ast.Node) error {
 	v := &prohibitVisitor{}
 	v.frame.InitRecurse(caller)
 	ast.Walk(v, node)
@@ -32,7 +32,7 @@ type prohibitVisitor struct {
 	frame
 }
 
-// Frame implements Framed.Frame
+// Frame implements framed.Frame
 func (t *prohibitVisitor) Frame() *frame {
 	return &t.frame
 }

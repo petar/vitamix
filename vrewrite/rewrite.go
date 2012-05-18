@@ -2,7 +2,7 @@
 // Use of this source code is governed by a 
 // license that can be found in the LICENSE file.
 
-package main
+package vrewrite
 
 import (
 	"fmt"
@@ -16,14 +16,14 @@ import (
 // XXX: Check imports for newline printing insights
 
 func fixChan(fset *token.FileSet, file *ast.File) {
-	if err := Rewrite(fset, file); err != nil {
+	if err := rewrite(fset, file); err != nil {
 		//fmt.Fprintf(os.Stderr, "Rewrite errors parsing '%s':\n%s\n", file.Name.Name, err)
 		fmt.Fprintf(os.Stderr, "—— Encountered errors while parsing\n")
 	}
 }
 
 // Rewrite creates a new rewriting frame
-func Rewrite(fset *token.FileSet, node ast.Node) error {
+func rewrite(fset *token.FileSet, node ast.Node) error {
 	rwv := &rewriteVisitor{}
 	rwv.frame.Init(fset)
 	ast.Walk(rwv, node)
@@ -31,8 +31,8 @@ func Rewrite(fset *token.FileSet, node ast.Node) error {
 }
 
 
-// RecurseRewrite creates a new rewriting frame as a callee from the frame caller
-func RecurseRewrite(caller Framed, node ast.Node) error {
+// recurseRewrite creates a new rewriting frame as a callee from the frame caller
+func recurseRewrite(caller framed, node ast.Node) error {
 	rwv := &rewriteVisitor{}
 	rwv.frame.InitRecurse(caller)
 	ast.Walk(rwv, node)
@@ -47,7 +47,7 @@ type rewriteVisitor struct {
 	frame
 }
 
-// Frame implements Framed.Frame
+// Frame implements framed.Frame
 func (t *rewriteVisitor) Frame() *frame {
 	return &t.frame
 }
@@ -80,7 +80,7 @@ func (t *rewriteVisitor) Visit(node ast.Node) ast.Visitor {
 				list = append(list, t.rewriteRecvStmt(stmt)...)
 			} else {
 				// Continue the walk recursively below this stmt
-				RecurseRewrite(t, stmt)
+				recurseRewrite(t, stmt)
 				list = append(list, stmt)
 			}
 		}
@@ -93,7 +93,7 @@ func (t *rewriteVisitor) Visit(node ast.Node) ast.Visitor {
 
 func (t *rewriteVisitor) rewriteGoStmt(gostmt *ast.GoStmt) []ast.Stmt {
 	// Rewrite lower level nodes
-	RecurseRewrite(t, gostmt.Call.Fun)
+	recurseRewrite(t, gostmt.Call.Fun)
 	for _, arg := range gostmt.Call.Args {
 		// TODO: Handle the case when an argument contains chan operations
 		RecurseProhibit(t, arg)
@@ -174,7 +174,7 @@ func (t *rewriteVisitor) rewriteSendStmt(sendstmt *ast.SendStmt) []ast.Stmt {
 func (t *rewriteVisitor) rewriteSelectStmt(selstmt *ast.SelectStmt) []ast.Stmt {
 	// Rewrite the comm clauses
 	for _, commclause := range selstmt.Body.List {
-		if err := RecurseRewrite(t, commclause); err != nil {
+		if err := recurseRewrite(t, commclause); err != nil {
 			t.errs.Add(err)
 		}
 	}

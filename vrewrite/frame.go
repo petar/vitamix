@@ -2,7 +2,7 @@
 // Use of this source code is governed by a 
 // license that can be found in the LICENSE file.
 
-package main
+package vrewrite
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"os"
 )
 
-type Framed interface {
+type framed interface {
 	Frame() *frame
 }
 
@@ -29,7 +29,7 @@ func (t *frame) Init(fset *token.FileSet) {
 }
 
 // InitRecurse initializes the frame from the calling frame
-func (t *frame) InitRecurse(caller Framed) {
+func (t *frame) InitRecurse(caller framed) {
 	t.fileSet = caller.Frame().fileSet
 	t.errs = caller.Frame().errs
 	t.recursion = caller.Frame().recursion+1
