@@ -1,6 +1,6 @@
 
 * Remove "time" import if not used after rewrite
-* Which is correct:
+* Which is correct? Does it matter?
 
 	Go()
 	go func() {
