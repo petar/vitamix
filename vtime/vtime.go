@@ -5,38 +5,85 @@
 package vtime
 
 import (
-	"fmt"
-	"os"
 	"sort"
+	"time"
 )
+
+// Sleep is the virtualized version of time.Sleep
+func Sleep(nsec time.Duration) {
+	ch := make(chan struct{})
+	vch <- &vsleep{
+		duration: int64(nsec),
+		wake:     ch,
+	}
+	<-ch
+}
 
 type vsleep struct {
 	duration int64
 	wake     chan struct{}
 }
 
-// Sleep is the virtualized version of time.Sleep
-func Sleep(nsec int64) {
-	ch := make(chan struct{})
-	vch <- &vsleep{
-		duration: nsec,
-		wake:     ch,
+// Now is the virtualized version of time.Now
+func Now() time.Time {
+	ch := make(chan int64)
+	vch <- &vnow{
+		resp: ch,
 	}
-	<-ch
+	return time.Unix(0, <-ch)
 }
 
 type vnow struct {
 	resp chan int64
 }
 
-// Now is the virtualized version of time.Now
-func Now() int64 {
-	ch := make(chan int64)
-	vch <- &vnow{
-		resp: ch,
-	}
-	return <-ch
+/*
+	Go is invoked before go statements in the virtualized source.
+	In particular, the virtualizing compiler rewrites go statements like so:
+
+	Original:
+
+		go FuncName()
+
+	Virtualized:
+
+		vtime.Go()
+		go func() {
+			FuncName()
+			vtime.Die()
+		}
+*/
+func Go() {
+	vch <- vgo{}
 }
+
+type vgo struct{}
+
+// Die is invoked after the end of functions called in go statements in the
+// virtualized source. See the doc for Go.
+func Die() {
+	vch <- vdie{}
+}
+
+type vdie struct{}
+
+// Block is invoked before every blocking channel operation (send, receive,
+// select statements) in the transformed source
+func Block() {
+	vch <- vblock{}
+}
+
+type vblock struct{}
+
+// Unblock is invoked after every blocking channel operation (send, receive,
+// select statements) in the transformed source
+func Unblock() {
+	vch <- vunblock{}
+}
+
+type vunblock struct{}
+
+// Runtime below
 
 var vch chan interface{}
 
@@ -51,6 +98,7 @@ func loop() {
 	var nblock  int    // Number of blocked goroutines
 	var q       queue  // Queue of waiting sleep calls
 
+	ngo = 1     // count the main go routine
 	for {
 		vcmd := <-vch
 		switch t := vcmd.(type) {
@@ -80,7 +128,7 @@ func loop() {
 		}
 		unsleep := q.DeleteMin()
 		if unsleep == nil {
-			fmt.Fprintf(os.Stderr, "spinning\n")
+			//fmt.Fprintf(os.Stderr, "spinning\n")
 			continue
 		}
 		nblock--
@@ -91,51 +139,6 @@ func loop() {
 		close(unsleep.wake)
 	}
 	panic("virtual time loop exited")
-}
-
-type vgo struct{}
-
-// Go is invoked before go statements in the virtualized source.
-// In particular, the virtualizing compiler rewrites go statements like so:
-//
-// Original:
-//
-//	go FuncName()
-//
-// Virtualized:
-//
-//	vtime.Go()
-//	go func() {
-//		FuncName()
-//		vtime.Die()
-//	}
-//
-func Go() {
-	vch <- vgo{}
-}
-
-type vdie struct{}
-
-// Die is invoked after the end of functions called in go statements in the
-// virtualized source. See the doc for Go.
-func Die() {
-	vch <- vdie{}
-}
-
-type vblock struct{}
-
-// Block is invoked before every blocking channel operation (send, receive,
-// select statements) in the transformed source
-func Block() {
-	vch <- vblock{}
-}
-
-type vunblock struct{}
-
-// Unblock is invoked after every blocking channel operation (send, receive,
-// select statements) in the transformed source
-func Unblock() {
-	vch <- vunblock{}
 }
 
 // queue sorts until instances ascending by timestamp

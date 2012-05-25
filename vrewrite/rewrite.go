@@ -14,6 +14,7 @@ import (
 // XXX: Make sure label statements produce an error
 // XXX: Take care of label statements
 // XXX: Check imports for newline printing insights
+// XXX: Remove import for time if all use cases are rewritten to vtime
 
 func fixChan(fset *token.FileSet, file *ast.File) {
 	if err := rewrite(fset, file); err != nil {

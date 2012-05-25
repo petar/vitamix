@@ -1,0 +1,17 @@
+
+* Remove "time" import if not used after rewrite
+* Which is correct:
+
+	Go()
+	go func() {
+		UserFunc()
+		Die()
+	}()
+
+or 
+
+	go func() {
+		Go()
+		UserFunc()
+		Die()
+	}()
