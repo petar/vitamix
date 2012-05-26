@@ -1,8 +1,8 @@
 # vitamix: time virtualization for Go
 
-_vitamix_ is a source-to-source compiler and a runtime for "virtualizing time"
-in Go programs. It is intended to aid testing and experimentation of
-extremely time-sensitive control software, which is itself written in Go.
+_vitamix_ is a source-to-source compiler, coupled with a runtime logic, for "virtualizing time"
+in Go programs. It is intended to aid in the testing of and experimentation with
+extremely time-sensitive "control" software, which is itself written in Go.
 
 ## Problem statement
 
@@ -43,16 +43,23 @@ test whether the control software behaves accurately in extreme situation when
 it is starved out of CPU resources by other running processes (e.g. a web
 server experiencing a denial-of-service attack).
 
-_vitamix_ meets precise these needs: 
+In summary, we would like to be able to execute _any_ Go program, while
+eliminating 
 
-> _vitamix_ gives a way to engineer the perception
-> of time of any algorithm that is supplied in Go source code.
+_vitamix_ accommodates precisely these needs: _vitamix is a tool that
+allows one to execute_
+
+## Concept
 
 ## Principle of operation
 
 _vitamix_ consists of two parts:
 
-* Source-to-source transformer, which rewrites the source 
+* Source-to-source transformer which rewrites the program source, and
+* Go package which is utilized by the rewritten source and acts as
+an additional runtime (additional to the Go runtime).
+
+
 
 To install,
 
