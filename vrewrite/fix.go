@@ -10,9 +10,25 @@ import (
 )
 
 func RewriteFile(fileSet *token.FileSet, file *ast.File) error {
+
+	// addImport will automatically rename any existing package references with
+	// conflicting name vtime to vtime_
 	addImport(file, "github.com/petar/vitamix/vtime")
-	fixCall(file)
-	fixChan(fileSet, file)
+
+	// rewriteTimeCalls will rewrite time.Now and time.Sleep to
+	// vtime.Now and vtime.Sleep
+	needVtime, needTime := rewriteTimeCalls(file)
+
+	if !needVtime {
+		removeImport(file, "github.com/petar/vitamix/vtime")
+	}
+
+	if !needTime {
+		removeImport(file, "time")
+	}
+
+	rewriteChanOps(fileSet, file)
+
 	return nil
 }
 
@@ -24,29 +40,4 @@ func RewritePackage(fileSet *token.FileSet, pkg *ast.Package) error {
 		}
 	}
 	return err
-}
-
-func fixCall(file *ast.File) {
-	ast.Walk(VisitorNoReturnFunc(fixCallVisit), file)
-}
-
-func fixCallVisit(x ast.Node) {
-	callexpr, ok := x.(*ast.CallExpr)
-	if !ok || callexpr.Fun == nil {
-		return
-	}
-	sexpr, ok := callexpr.Fun.(*ast.SelectorExpr)
-	if !ok {
-		return
-	}
-	sx, ok := sexpr.X.(*ast.Ident)
-	if !ok {
-		return
-	}
-	if sx.Name != "time" {
-		return
-	}
-	if sexpr.Sel.Name == "Now" || sexpr.Sel.Name == "Sleep" {
-		sx.Name = "vtime"
-	}
 }

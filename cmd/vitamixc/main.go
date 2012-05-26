@@ -70,6 +70,7 @@ func main() {
 				RewriteFile(fileSet, fileFile)
 				position := fileSet.Position(fileFile.Package)
 				if err = PrintToFile(path.Join(tgt, position.Filename), fileSet, fileFile); err != nil {
+					fmt.Fprintf(os.Stderr, "Problem determining source filename (%s)", err)
 					os.Exit(1)
 				}
 			}

@@ -15,8 +15,9 @@ import (
 // XXX: Take care of label statements
 // XXX: Check imports for newline printing insights
 // XXX: Remove import for time if all use cases are rewritten to vtime
+// XXX: Cannot fix invokations to Now and Sleep, if not in the form time.Now and time.Sleep
 
-func fixChan(fset *token.FileSet, file *ast.File) {
+func rewriteChanOps(fset *token.FileSet, file *ast.File) {
 	if err := rewrite(fset, file); err != nil {
 		//fmt.Fprintf(os.Stderr, "Rewrite errors parsing '%s':\n%s\n", file.Name.Name, err)
 		fmt.Fprintf(os.Stderr, "—— Encountered errors while parsing\n")

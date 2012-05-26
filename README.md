@@ -10,11 +10,12 @@ Control software (like robotic control or congestion control) is software that i
 form or another listens to external events in real time and reacts with carefully-timed
 responses.
 
-Control software is notoriously hard to get right, because even the computational micro-delays
-in the software itself (not to mention the hardware) can affect the overall outcomes.
+Control software is notoriously hard to get right, because even the time to
+compute a response (which depends on the specific implementation and the
+hardware) can and does affect the overall outcomes in a non-negligible manner.
 
-While developing control software, ideally, one wants to be able to perform
-sandbox simulations and experiments, while meeting the following demands:
+In developing control software, one wants to be able to perform
+sandbox simulations, while meeting the following demands:
 
 * _The computational time (i.e. the time it takes the software to compute a reaction to an event) is zero._ 
 Being able to do this is a way of decoupling the outcomes of the response logic

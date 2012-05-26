@@ -11,8 +11,15 @@ import (
 	"testing"
 )
 
+type testPair struct {
+	Source string
+	Output string
+}
+
 var (
-	testSources = []string{
+	tests = []testPair{
+		testPair{
+			Source:
 `
 package main
 import "time"
@@ -31,6 +38,14 @@ func main() {
 	println("C", time.Now().UnixNano()) 
 }
 `,
+			Output:
+`B 1000000000
+A 2000000000
+C 3000000000
+`,
+		},
+		testPair{
+			Source:
 `
 package main
 import "time"
@@ -55,24 +70,57 @@ func main() {
 	println("OK")
 }
 `,
-	}
-	expectedOutputs = []string{
-`B 1000000000
-A 2000000000
-C 3000000000
-`,
+			Output:
 `A
 1000000000
 B
 2000000000
 OK
 `,
+		},
+		testPair{
+			Source:
+`
+package main
+import "time"
+func main() {
+	ch1 := make(chan int)
+	ch2 := make(chan int)
+	go func() {
+		time.Sleep(2*time.Second)
+		ch1 <- 1
+	}()
+	go func() {
+		time.Sleep(1*time.Second)
+		ch2 <- 1
+	}()
+	goto __Label
+__Label:
+	select {
+	case <-ch1:
+		println("B")
+		println(time.Now().UnixNano())
+	case <-ch2:
+		println("A")
+		println(time.Now().UnixNano())
+	}
+	println("OK")
 }
+`,
+			Output:
+`A
+1000000000
+B
+2000000000
+OK
+`,
+		},
+	}
 )
 
 func TestRewriteFile(t *testing.T) {
-	for i, src := range testSources {
-		testSnippet(i, src, expectedOutputs[i], t)
+	for i, pair := range tests {
+		testSnippet(i, pair.Source, pair.Output, t)
 	}
 }
 
