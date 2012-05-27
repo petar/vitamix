@@ -1,5 +1,4 @@
 
-* Remove "time" import if not used after rewrite
 * Which is correct? Does it matter?
 
 	Go()

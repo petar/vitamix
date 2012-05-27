@@ -8,15 +8,14 @@ import (
 	"go/ast"
 )
 
-func rewriteTimeCalls(file *ast.File) (needVtime, needTime bool) {
+func rewriteTimeCalls(file *ast.File) (needVtime bool) {
 	v := &callVisitor{}
 	ast.Walk(v, file)
-	return v.NeedPkgVtime, v.NeedPkgTime
+	return v.NeedPkgVtime
 }
 
 type callVisitor struct {
 	NeedPkgVtime bool
-	NeedPkgTime  bool  // True if after rewriting invokations to time.Sleep and time.Now, other references to pkg "time" remain
 }
 
 func (v *callVisitor) Visit(x ast.Node) ast.Visitor {
@@ -38,8 +37,6 @@ func (v *callVisitor) Visit(x ast.Node) ast.Visitor {
 	if sexpr.Sel.Name == "Now" || sexpr.Sel.Name == "Sleep" {
 		sx.Name = "vtime"
 		v.NeedPkgVtime = true
-	} else {
-		v.NeedPkgTime = true
 	}
 	return v
 }

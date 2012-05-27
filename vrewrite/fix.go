@@ -17,17 +17,16 @@ func RewriteFile(fileSet *token.FileSet, file *ast.File) error {
 
 	// rewriteTimeCalls will rewrite time.Now and time.Sleep to
 	// vtime.Now and vtime.Sleep
-	needVtime, needTime := rewriteTimeCalls(file)
+	needVtime := rewriteTimeCalls(file) || rewriteChanOps(fileSet, file)
 
 	if !needVtime {
 		removeImport(file, "github.com/petar/vitamix/vtime")
 	}
 
-	if !needTime {
+	// If there are no left references to pkg time, remove the import
+	if !ExistSelectorFor(file, "time") {
 		removeImport(file, "time")
 	}
-
-	rewriteChanOps(fileSet, file)
 
 	return nil
 }

@@ -11,34 +11,32 @@ import (
 	"os"
 )
 
-// XXX: Make sure label statements produce an error
-// XXX: Take care of label statements
-// XXX: Check imports for newline printing insights
-// XXX: Remove import for time if all use cases are rewritten to vtime
 // XXX: Cannot fix invokations to Now and Sleep, if not in the form time.Now and time.Sleep
 
-func rewriteChanOps(fset *token.FileSet, file *ast.File) {
-	if err := rewrite(fset, file); err != nil {
+func rewriteChanOps(fset *token.FileSet, file *ast.File) bool {
+	needVtime, err := rewrite(fset, file)
+	if err != nil {
 		//fmt.Fprintf(os.Stderr, "Rewrite errors parsing '%s':\n%s\n", file.Name.Name, err)
 		fmt.Fprintf(os.Stderr, "—— Encountered errors while parsing\n")
 	}
+	return needVtime
 }
 
 // Rewrite creates a new rewriting frame
-func rewrite(fset *token.FileSet, node ast.Node) error {
+func rewrite(fset *token.FileSet, node ast.Node) (bool, error) {
 	rwv := &rewriteVisitor{}
 	rwv.frame.Init(fset)
 	ast.Walk(rwv, node)
-	return rwv.Error()
+	return rwv.NeedPkgVtime, rwv.Error()
 }
 
 
 // recurseRewrite creates a new rewriting frame as a callee from the frame caller
-func recurseRewrite(caller framed, node ast.Node) error {
+func recurseRewrite(caller framed, node ast.Node) (bool, error) {
 	rwv := &rewriteVisitor{}
 	rwv.frame.InitRecurse(caller)
 	ast.Walk(rwv, node)
-	return rwv.Error()
+	return rwv.NeedPkgVtime, rwv.Error()
 }
 
 // rewriteVisitor is an AST frame that traverses down the AST until it hits a block
@@ -46,6 +44,7 @@ func recurseRewrite(caller framed, node ast.Node) error {
 // This visitor itself does not traverse below the statements of the block statement.
 // It does however call another visitor type to continue below those statements.
 type rewriteVisitor struct {
+	NeedPkgVtime bool
 	frame
 }
 
@@ -72,17 +71,25 @@ func (t *rewriteVisitor) Visit(node ast.Node) ast.Visitor {
 	for _, stmt := range bstmt.List {
 		switch q := stmt.(type) {
 		case *ast.SelectStmt:
+			t.NeedPkgVtime = true
 			list = append(list, t.rewriteSelectStmt(q)...)
 		case *ast.SendStmt:
+			t.NeedPkgVtime = true
 			list = append(list, t.rewriteSendStmt(q)...)
 		case *ast.GoStmt:
+			t.NeedPkgVtime = true
 			list = append(list, t.rewriteGoStmt(q)...)
 		default:
 			if filterRecvStmt(stmt) != nil {
+				t.NeedPkgVtime = true
 				list = append(list, t.rewriteRecvStmt(stmt)...)
 			} else {
 				// Continue the walk recursively below this stmt
-				recurseRewrite(t, stmt)
+				needVtime, err := recurseRewrite(t, stmt)
+				if err != nil {
+					t.errs.Add(err)
+				}
+				t.NeedPkgVtime = t.NeedPkgVtime || needVtime
 				list = append(list, stmt)
 			}
 		}
@@ -176,9 +183,11 @@ func (t *rewriteVisitor) rewriteSendStmt(sendstmt *ast.SendStmt) []ast.Stmt {
 func (t *rewriteVisitor) rewriteSelectStmt(selstmt *ast.SelectStmt) []ast.Stmt {
 	// Rewrite the comm clauses
 	for _, commclause := range selstmt.Body.List {
-		if err := recurseRewrite(t, commclause); err != nil {
+		needVtime, err := recurseRewrite(t, commclause); 
+		if err != nil {
 			t.errs.Add(err)
 		}
+		t.NeedPkgVtime = t.NeedPkgVtime || needVtime
 	}
 
 	// Place a call to Unblock immediately after each case and default
