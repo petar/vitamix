@@ -5,7 +5,8 @@
 package main
 
 import (
-	//"flag"
+	"errors"
+	"flag"
 	"fmt"
 	"go/parser"
 	"go/token"
@@ -15,29 +16,74 @@ import (
 	. "github.com/petar/vitamix/vrewrite"
 )
 
+// TODO: Make subdir recursion optional
+// Integrate with GOPATH to rewrite internal imports as well
+
 // XXX:
 //	* Print out is messy when comments are present
 // TODO:
-//	* Remove import of "time" package if not used other than for Now and Sleep
-//	* Ensure there is no other package imported as "vtime"
 //	* fallthough in select statements is not supported. check for it.
-//	* We are assuming that pkg 'time' is imported as 'time'
-//	* We only catch direct calls of the form 'time.Now()'.
-//	* We would not catch indirect calls as in 'f := time.Now; f()'
-
-func usage() {
-	fmt.Printf("%s [source_file_or_dir] [dest_file_or_dir]\n", os.Args[0])
-	//flag.PrintDefaults()
-	os.Exit(1)
-}
+//	* We only catch direct calls of the form 'time.Now()', 
+//	  we would not catch indirect calls as in 'f := time.Now; f()'
 
 func FilterGoFiles(fi os.FileInfo) bool {
 	name := fi.Name()
 	return !fi.IsDir() && !strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".go")
 }
 
+var (
+	flagDump   *bool   = flag.Bool("d", false, "Dump the AST of the source file")
+	flagGoPath *string = flag.String("gopath", "", "Use the given GOPATH")
+)
+
+func usage() {
+	fmt.Printf("%s -d [source_file]\n", os.Args[0])
+	fmt.Printf("   e.g. %s -d src.go\n", os.Args[0])
+	fmt.Printf("%s [source_file] [dest_file]\n", os.Args[0])
+	fmt.Printf("   e.g. %s src.go dest.go\n", os.Args[0])
+	fmt.Printf("%s [src_pkg_path] [dest_pkg_path]\n", os.Args[0])
+	fmt.Printf("   e.g. %s a/p b/x/y\n", os.Args[0])
+	fmt.Printf("%s [src_pkg_go_glob] [dest_pkg_go_glob]\n", os.Args[0])
+	fmt.Printf("   e.g. %s a/p/... b/x/y/...\n", os.Args[0])
+	os.Exit(1)
+}
+
+func dump(filename string) {
+	fileSet := token.NewFileSet()
+	file, err := parser.ParseFile(fileSet, filename, nil, 0)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "parse error: %s\n", err)
+		os.Exit(1)
+	}
+	ast.Print(fileSet, file)
+}
+
+// getGoPaths returns the available GOPATHs either from the env or from the flag
+func getGoPaths() []string {
+	gopath := *flagGoPaths
+	if gopath == "" {
+		gopath = os.ExpandEnv("$GOPATH")
+	}
+	return strings.Split(gopath, ":")
+}
+
+// pickGoPath determines which GOPATH shuold be used, based on the
+// the source directory and the current directory
+func pickGoPath(srcdir string) (string, error) {
+	gopaths := getGoPaths()
+}
+
 func main() {
-	//flag.Parse()
+	flag.Parse()
+
+	// Determine GOPATH
+	gopath, err := getGoPath()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot determine GOPATH (%s)\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Using $GOPATH = `%s`", gopath)
+
 	if len(os.Args) != 3 {
 		usage()
 	}
