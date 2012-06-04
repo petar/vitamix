@@ -5,9 +5,9 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"fmt"
+	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
@@ -33,7 +33,7 @@ func FilterGoFiles(fi os.FileInfo) bool {
 
 var (
 	flagDump   *bool   = flag.Bool("d", false, "Dump the AST of the source file")
-	flagGoPath *string = flag.String("gopath", "", "Use the given GOPATH")
+	flagGoPath *string = flag.String("gopath", "", "Specify a GOPATH that overrides the environment variable")
 )
 
 func usage() {
@@ -58,47 +58,52 @@ func dump(filename string) {
 	ast.Print(fileSet, file)
 }
 
-// getGoPaths returns the available GOPATHs either from the env or from the flag
-func getGoPaths() []string {
-	gopath := *flagGoPaths
-	if gopath == "" {
-		gopath = os.ExpandEnv("$GOPATH")
-	}
-	return strings.Split(gopath, ":")
-}
-
-// pickGoPath determines which GOPATH shuold be used, based on the
-// the source directory and the current directory
-func pickGoPath(srcdir string) (string, error) {
-	gopaths := getGoPaths()
-}
-
 func main() {
 	flag.Parse()
+	args := flag.Args()
 
-	// Determine GOPATH
-	gopath, err := getGoPath()
+	root, err := getGoRoot()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot determine GOPATH (%s)\n", err)
+		fmt.Fprintf(os.Stderr, "Cannot determine source root directory (%s)\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Using $GOPATH = `%s`", gopath)
+	fmt.Printf("Using source root directory `%s`\n", root)
 
-	if len(os.Args) != 3 {
+	// Are we in dump mode?
+	if *flagDump {
+		if len(args) != 1 {
+			usage()
+		}
+		srci, err := os.Stat(args[0])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Problem accessing source (%s)\n", err)
+			os.Exit(1)
+		}
+		if srci.IsDir() {
+			fmt.Fprintf(os.Stderr, "Expecting individual source file for dumping\n")
+			os.Exit(1)
+		}
+		dump(args[0])
+		return
+	}
+
+	// Need two arguments for source-to-source transformation
+	/*
+	if len(args) != 2 {
 		usage()
 	}
-	src, dest := os.Args[1], os.Args[2]
-	srcInfo, err := os.Stat(src)
+	src, dest := args[1], args[2]
+	srci, err := os.Stat(src)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Problem accessing source (%s)\n", err)
 		os.Exit(1)
 	}
-	if srcInfo.IsDir() {
-		if err := processDir(src, dest); err != nil {
-			fmt.Fprintf(os.Stderr, "Problem processing directory (%s)\n", err)
-			os.Exit(1)
-		}
-	} else {
+
+	??
+*/
+	// Single source file mode
+	/*
+	if !srcInfo.IsDir() {
 		fileSet := token.NewFileSet()
 		file, err := parser.ParseFile(fileSet, src, nil, parser.ParseComments)
 		if err != nil {
@@ -109,8 +114,24 @@ func main() {
 		if err = PrintToFile(dest, fileSet, file); err != nil {
 			os.Exit(1)
 		}
+		return
 	}
+	*/
 
+	// Determine the Go root directory
+	/*
+	root, err := getGoRoot()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot determine the source root directory (%s)\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Using source root directory `%s`", root)
+
+	if err := processDir(src, dest); err != nil {
+		fmt.Fprintf(os.Stderr, "Problem processing directory (%s)\n", err)
+		os.Exit(1)
+	}
+	*/
 }
 
 func processDir(src, dest string) error {
