@@ -16,13 +16,13 @@ import (
 	. "github.com/petar/vitamix/vrewrite"
 )
 
-// TODO: Make subdir recursion optional
-// Integrate with GOPATH to rewrite internal imports as well
-
 // XXX:
+//	* No subdir recursion
+//	* Integrate with GOPATH to rewrite internal imports, as a separate command
 //	* Print out is messy when comments are present
+
 // TODO:
-//	* fallthough in select statements is not supported. check for it.
+//	* fallthrough in select statements is not supported. detect it and complain.
 //	* We only catch direct calls of the form 'time.Now()', 
 //	  we would not catch indirect calls as in 'f := time.Now; f()'
 
@@ -30,6 +30,26 @@ func FilterGoFiles(fi os.FileInfo) bool {
 	name := fi.Name()
 	return !fi.IsDir() && !strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".go")
 }
+
+const help = `
+	vitamix dump    -src [source_file | package_dir]
+		Dump the AST of the supplied source file or package. E.g.:
+
+		$ vitamix dump -src my.go
+
+	vitamix vtime   -src [src_package_dir] -dst [dst_package_dir]
+		Rewrite all files in the src_package_dir to use virtualized time and
+		write the new sources in dst_package_dir. The destination directory
+		will be overwritten! E.g.:
+
+		$ vitamix vtime -src ./timepkg -dst ./timepkg-vtmx
+
+	vitamix vimport -src [package_dir] -orig [original_import] -subs [subs_import]
+		In-place rewrite imports of package original_import to subs_import, in all
+		files in package_dir. E.g.:
+
+		$ vitamix vimport -src ./timepkg-vtmx -orig github.com/petar/proj/alg -subs petar/alg-vtmx
+`
 
 var (
 	flagDump   *bool   = flag.Bool("d", false, "Dump the AST of the source file")

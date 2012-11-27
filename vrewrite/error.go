@@ -10,7 +10,7 @@ import (
 	"go/token"
 )
 
-// Error is represents a semantic error in the source code
+// Error represents a semantic error in the source code
 type Error struct {
 	Position token.Position
 	Msg      string

@@ -1,16 +1,11 @@
 
-* Which is correct? Does it matter?
+* We don't fix invokations to Now and Sleep, unless in the form time.Now and time.Sleep
+So something like this will confuse us:
 
-	Go()
-	go func() {
-		UserFunc()
-		Die()
-	}()
+	import (t "time")
+	sleep := t.Sleep
+	...
+	sleep(t.Second)
+At the bare minimum, we should support using renamed imports of "time"
 
-or 
 
-	go func() {
-		Go()
-		UserFunc()
-		Die()
-	}()

@@ -8,6 +8,17 @@ import (
 	"go/ast"
 )
 
+// rewriteTimeCalls converts source like
+//
+//		time.Now()
+//		time.Sleep(...)
+//
+// to
+//
+//		vtime.Now()
+//		vtime.Sleep(...)
+//
+// rewriteTimeCalls returns true if any code changes were made.
 func rewriteTimeCalls(file *ast.File) (needVtime bool) {
 	v := &callVisitor{}
 	ast.Walk(v, file)

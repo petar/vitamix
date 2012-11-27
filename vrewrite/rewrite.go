@@ -11,8 +11,6 @@ import (
 	"os"
 )
 
-// XXX: Cannot fix invokations to Now and Sleep, if not in the form time.Now and time.Sleep
-
 func rewriteChanOps(fset *token.FileSet, file *ast.File) bool {
 	needVtime, err := rewrite(fset, file)
 	if err != nil {
