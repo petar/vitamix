@@ -5,6 +5,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"go/ast"
@@ -18,7 +19,6 @@ import (
 
 // XXX:
 //	* No subdir recursion
-//	* Integrate with GOPATH to rewrite internal imports, as a separate command
 //	* Print out is messy when comments are present
 
 // TODO:
@@ -31,40 +31,10 @@ func FilterGoFiles(fi os.FileInfo) bool {
 	return !fi.IsDir() && !strings.HasPrefix(name, ".") && strings.HasSuffix(name, ".go")
 }
 
-const help = `
-	vitamix dump    -src [source_file | package_dir]
-		Dump the AST of the supplied source file or package. E.g.:
-
-		$ vitamix dump -src my.go
-
-	vitamix vtime   -src [src_package_dir] -dst [dst_package_dir]
-		Rewrite all files in the src_package_dir to use virtualized time and
-		write the new sources in dst_package_dir. The destination directory
-		will be overwritten! E.g.:
-
-		$ vitamix vtime -src ./timepkg -dst ./timepkg-vtmx
-
-	vitamix vimport -src [package_dir] -orig [original_import] -subs [subs_import]
-		In-place rewrite imports of package original_import to subs_import, in all
-		files in package_dir. E.g.:
-
-		$ vitamix vimport -src ./timepkg-vtmx -orig github.com/petar/proj/alg -subs petar/alg-vtmx
-`
-
-var (
-	flagDump   *bool   = flag.Bool("d", false, "Dump the AST of the source file")
-	flagGoPath *string = flag.String("gopath", "", "Specify a GOPATH that overrides the environment variable")
-)
+const help = `vitamix InputSourceDir OutputSourceDir PkgPattern`
 
 func usage() {
-	fmt.Printf("%s -d [source_file]\n", os.Args[0])
-	fmt.Printf("   e.g. %s -d src.go\n", os.Args[0])
-	fmt.Printf("%s [source_file] [dest_file]\n", os.Args[0])
-	fmt.Printf("   e.g. %s src.go dest.go\n", os.Args[0])
-	fmt.Printf("%s [src_pkg_path] [dest_pkg_path]\n", os.Args[0])
-	fmt.Printf("   e.g. %s a/p b/x/y\n", os.Args[0])
-	fmt.Printf("%s [src_pkg_go_glob] [dest_pkg_go_glob]\n", os.Args[0])
-	fmt.Printf("   e.g. %s a/p/... b/x/y/...\n", os.Args[0])
+	println(help)
 	os.Exit(1)
 }
 
@@ -80,81 +50,76 @@ func dump(filename string) {
 
 func main() {
 	flag.Parse()
-	args := flag.Args()
-
-	root, err := getGoRoot()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot determine source root directory (%s)\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("Using source root directory `%s`\n", root)
-
-	// Are we in dump mode?
-	if *flagDump {
-		if len(args) != 1 {
-			usage()
-		}
-		srci, err := os.Stat(args[0])
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Problem accessing source (%s)\n", err)
-			os.Exit(1)
-		}
-		if srci.IsDir() {
-			fmt.Fprintf(os.Stderr, "Expecting individual source file for dumping\n")
-			os.Exit(1)
-		}
-		dump(args[0])
-		return
-	}
-
-	// Need two arguments for source-to-source transformation
-	/*
-	if len(args) != 2 {
+	if flag.NArg() != 3 {
 		usage()
 	}
-	src, dest := args[1], args[2]
-	srci, err := os.Stat(src)
+
+	inSrcDir, outSrcDir, pkgPttrn := flag.Arg(0), flag.Arg(1), flag.Arg(2)
+
+	pkgPaths, err := matchPattern(inSrcDir, pkgPttrn)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Problem accessing source (%s)\n", err)
+		println("Problem finding packages:", err.Error())
 		os.Exit(1)
 	}
 
-	??
-*/
-	// Single source file mode
-	/*
-	if !srcInfo.IsDir() {
-		fileSet := token.NewFileSet()
-		file, err := parser.ParseFile(fileSet, src, nil, parser.ParseComments)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Problem parsing file '%s' (%s)\n", src, err)
+	for _, pkgPath := range pkgPaths {
+		println(pkgPath)
+		if err = rewriteDir(path.Join(inSrcDir, pkgPath), path.Join(outSrcDir, pkgPath)); err != nil {
+			println("Problem processing", pkgPath, ":", err.Error())
 			os.Exit(1)
 		}
-		RewriteFile(fileSet, file)
-		if err = PrintToFile(dest, fileSet, file); err != nil {
-			os.Exit(1)
-		}
-		return
 	}
-	*/
-
-	// Determine the Go root directory
-	/*
-	root, err := getGoRoot()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Cannot determine the source root directory (%s)\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("Using source root directory `%s`", root)
-
-	if err := processDir(src, dest); err != nil {
-		fmt.Fprintf(os.Stderr, "Problem processing directory (%s)\n", err)
-		os.Exit(1)
-	}
-	*/
 }
 
-func processDir(src, dest string) error {
+func matchPattern(srcDir, pkgPttrn string) ([]string, error) {
+	var ellipses bool
+	if strings.HasSuffix(pkgPttrn, "...") {
+		ellipses = true
+		pkgPttrn = path.Clean(pkgPttrn[:len(pkgPttrn)-len("...")])
+	}
+	var r []string
+	q := []string{pkgPttrn}
+	for len(q) > 0 {
+		var p string
+		p, q = q[0], q[1:]
+		fi, err := os.Stat(path.Join(srcDir, p))
+		if err != nil {
+			return nil, err
+		}
+		if !fi.IsDir() {
+			return nil, errors.New("not a directory")
+		}
+		r = append(r, p)
+		if ellipses {
+			if err = descendPkg(srcDir, p, &q); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return r, nil
+}
+
+func descendPkg(srcDir, p string, q *[]string) error {
+	d, err := os.Open(path.Join(srcDir, p))
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+
+	fifi, err := d.Readdir(0)
+	if err != nil {
+		return err
+	}
+
+	for _, fi := range fifi {
+		if fi.IsDir() {
+			*q = append(*q, path.Join(p, fi.Name()))
+		}
+	}
+	return nil
+}
+
+func rewriteDir(src, dest string) error {
 	fmt.Printf("Rewriting directory %s ——> %s\n", src, dest)
 
 	// Make destination directory if it doesn't exist
@@ -182,28 +147,6 @@ func processDir(src, dest string) error {
 				fmt.Fprintf(os.Stderr, "Problem determining source filename (%s)", err)
 				os.Exit(1)
 			}
-		}
-	}
-
-	// Recurse the subdirectories of src
-	srcDir, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer srcDir.Close()
-
-	for { 
-		fi_, err := srcDir.Readdir(10)
-		for _, fi := range fi_ {
-			if !fi.IsDir() {
-				continue
-			}
-			if err := processDir(path.Join(src, fi.Name()), path.Join(dest, fi.Name())); err != nil {
-				return err
-			}
-		}
-		if err != nil {
-			break
 		}
 	}
 	return nil
