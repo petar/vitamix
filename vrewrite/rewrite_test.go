@@ -96,13 +96,15 @@ func main() {
 	}()
 	goto __Label
 __Label:
-	select {
-	case <-ch1:
-		println("B")
-		println(time.Now().UnixNano())
-	case <-ch2:
-		println("A")
-		println(time.Now().UnixNano())
+	for i := 0; i < 2; i++ {
+		select {
+		case <-ch1:
+			println("B")
+			println(time.Now().UnixNano())
+		case <-ch2:
+			println("A")
+			println(time.Now().UnixNano())
+		}
 	}
 	println("OK")
 }
@@ -132,7 +134,7 @@ func testSnippet(i int, src, exp string, t *testing.T) {
 	}
 	RewriteFile(fileSet, file)
 	tmp := path.Join(os.TempDir(), strconv.Itoa(i) + ".go")
-	fmt.Printf("Using temporary file `%s`", tmp)
+	fmt.Printf("Using temporary file `%s`\n", tmp)
 
 	if err := PrintToFile(tmp, fileSet, file); err != nil {
 		t.Errorf("print to file (%s)", err)

@@ -15,9 +15,9 @@ func RewriteFile(fileSet *token.FileSet, file *ast.File) error {
 	// conflicting name vtime to vtime_
 	addImport(file, "github.com/petar/vitamix/vtime")
 
-	// rewriteTimeCalls will rewrite time.Now and time.Sleep to
-	// vtime.Now and vtime.Sleep
-	needVtime := rewriteTimeCalls(file) || rewriteChanOps(fileSet, file)
+	// rewriteTimeCalls will rewrite time.Now and time.Sleep to vtime.Now and vtime.Sleep
+	needVtime := rewriteTimeCalls(file)
+	needVtime = rewriteChanOps(fileSet, file) || needVtime
 
 	if !needVtime {
 		removeImport(file, "github.com/petar/vitamix/vtime")
